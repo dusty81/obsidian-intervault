@@ -6,7 +6,7 @@ import {
   writeFileSync,
 } from "fs";
 import { join, dirname, basename, extname } from "path";
-import { App, TFile, Notice } from "obsidian";
+import { App, TFile, TFolder, Notice } from "obsidian";
 import {
   TransferPlan,
   TransferItem,
@@ -173,19 +173,49 @@ export async function executeTransfer(
 
   // Delete source files if mode is "move"
   if (plan.mode === "move") {
+    const parentFolders = new Set<string>();
+
     for (const item of result.success) {
       try {
         const file = app.vault.getAbstractFileByPath(item.relativeSourcePath);
         if (file) {
+          // Track parent folders for cleanup
+          const parentPath = dirname(item.relativeSourcePath);
+          if (parentPath && parentPath !== ".") {
+            parentFolders.add(parentPath);
+          }
           await app.vault.trash(file, false);
         }
       } catch (err: any) {
         console.warn(`InterVault: failed to delete source ${item.relativeSourcePath}:`, err);
       }
     }
+
+    // Clean up empty folders, deepest first
+    if (result.failed.length === 0) {
+      const sortedFolders = [...parentFolders].sort((a, b) => b.length - a.length);
+      for (const folderPath of sortedFolders) {
+        try {
+          await removeEmptyFoldersUp(app, folderPath);
+        } catch (err: any) {
+          console.warn(`InterVault: failed to clean up folder ${folderPath}:`, err);
+        }
+      }
+    }
   }
 
   return result;
+}
+
+async function removeEmptyFoldersUp(app: App, folderPath: string): Promise<void> {
+  let current = folderPath;
+  while (current && current !== "." && current !== "/") {
+    const folder = app.vault.getAbstractFileByPath(current);
+    if (!(folder instanceof TFolder)) break;
+    if (folder.children.length > 0) break;
+    await app.vault.trash(folder, false);
+    current = dirname(current);
+  }
 }
 
 function addTransferFrontmatter(
