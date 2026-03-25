@@ -41,25 +41,28 @@ export function discoverVaults(currentVaultPath: string): VaultInfo[] {
 export function getDestinationFolders(vaultPath: string): string[] {
   const folders: string[] = ["/"];
   const skipDirs = new Set(["node_modules", ".git", ".obsidian", ".trash", "__pycache__"]);
+  const MAX_DEPTH = 15;
 
-  function walk(dir: string, relative: string) {
+  function walk(dir: string, relative: string, depth: number) {
+    if (depth >= MAX_DEPTH) return;
     let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
     } catch {
-      return; // skip unreadable directories
+      return;
     }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       if (entry.name.startsWith(".")) continue;
       if (skipDirs.has(entry.name)) continue;
+      if (entry.isSymbolicLink()) continue;
       const rel = relative ? `${relative}/${entry.name}` : entry.name;
       folders.push(rel);
-      walk(join(dir, entry.name), rel);
+      walk(join(dir, entry.name), rel, depth + 1);
     }
   }
 
-  walk(vaultPath, "");
+  walk(vaultPath, "", 0);
   return folders;
 }
 

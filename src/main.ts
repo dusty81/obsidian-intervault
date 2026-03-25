@@ -127,7 +127,7 @@ export default class InterVaultPlugin extends Plugin {
     }).open();
   }
 
-  private executeTransferFlow(
+  private async executeTransferFlow(
     sourceVaultPath: string,
     destVault: VaultInfo,
     destFolder: string,
@@ -153,7 +153,7 @@ export default class InterVaultPlugin extends Plugin {
       items,
     };
 
-    const result = executeTransfer(plan, this.settings, this.app);
+    const result = await executeTransfer(plan, this.settings, this.app);
 
     // Report results
     const modeVerb = options.mode === "move" ? "moved" : "copied";

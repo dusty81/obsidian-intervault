@@ -42,12 +42,15 @@ export function resolveResources(app: App, files: TFile[]): ResolvedResources {
     }
   }
 
-  const getFile = (path: string) => app.vault.getAbstractFileByPath(path) as TFile;
+  const getFile = (path: string): TFile | null => {
+    const f = app.vault.getAbstractFileByPath(path);
+    return f instanceof TFile ? f : null;
+  };
 
   return {
     primaryFiles: files,
-    resources: [...resourcePaths].map(getFile).filter(Boolean),
-    linkedNotes: [...linkedNotePaths].map(getFile).filter(Boolean),
+    resources: ([...resourcePaths].map(getFile).filter((f): f is TFile => f !== null)),
+    linkedNotes: ([...linkedNotePaths].map(getFile).filter((f): f is TFile => f !== null)),
   };
 }
 

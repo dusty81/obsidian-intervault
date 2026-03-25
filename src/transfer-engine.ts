@@ -103,45 +103,47 @@ function resolveConflict(destAbsPath: string): string {
   return candidate;
 }
 
-export function executeTransfer(
+export async function executeTransfer(
   plan: TransferPlan,
   settings: InterVaultSettings,
   app: App,
-): TransferResult {
+): Promise<TransferResult> {
   const result: TransferResult = { success: [], failed: [], renamed: [] };
 
-  // Build path mappings for link rewriting
-  const pathMappings: PathMapping[] = plan.items.map((item) => ({
+  // First pass: resolve all conflicts and determine final destination paths
+  const resolvedItems: { item: TransferItem; destAbsPath: string; finalRelDest: string }[] = [];
+  for (const item of plan.items) {
+    let destAbsPath = join(plan.destVaultPath, item.relativeDestPath);
+    const resolvedPath = resolveConflict(destAbsPath);
+    let finalRelDest = item.relativeDestPath;
+    if (resolvedPath !== destAbsPath) {
+      const newName = basename(resolvedPath);
+      result.renamed.push({ item, newName });
+      destAbsPath = resolvedPath;
+      // Update the relative dest path to reflect the rename
+      const dir = dirname(item.relativeDestPath);
+      finalRelDest = dir === "." ? newName : `${dir}/${newName}`;
+    }
+    resolvedItems.push({ item, destAbsPath, finalRelDest });
+  }
+
+  // Build path mappings AFTER conflict resolution using final paths
+  const pathMappings: PathMapping[] = resolvedItems.map(({ item, finalRelDest }) => ({
     oldPath: item.relativeSourcePath,
-    newPath: item.relativeDestPath,
+    newPath: finalRelDest,
   }));
 
-  for (const item of plan.items) {
+  // Second pass: write files with correct mappings
+  for (const { item, destAbsPath } of resolvedItems) {
     try {
-      let destAbsPath = join(plan.destVaultPath, item.relativeDestPath);
-
-      // Handle conflict
-      const resolvedPath = resolveConflict(destAbsPath);
-      if (resolvedPath !== destAbsPath) {
-        const newName = basename(resolvedPath);
-        result.renamed.push({ item, newName });
-        destAbsPath = resolvedPath;
-      }
-
-      // Ensure parent directory exists
       const parentDir = dirname(destAbsPath);
       if (!existsSync(parentDir)) {
         mkdirSync(parentDir, { recursive: true });
       }
 
-      // For markdown files: rewrite links and add frontmatter
       if (item.sourcePath.endsWith(".md")) {
         let content = readFileSync(item.sourcePath, "utf-8");
-
-        // Rewrite links
         content = rewriteLinks(content, pathMappings);
-
-        // Add frontmatter
         if (settings.addFrontmatter) {
           content = addTransferFrontmatter(
             content,
@@ -149,10 +151,8 @@ export function executeTransfer(
             item.relativeSourcePath,
           );
         }
-
         writeFileSync(destAbsPath, content, "utf-8");
       } else {
-        // Binary file: straight copy
         copyFileSync(item.sourcePath, destAbsPath);
       }
 
@@ -168,10 +168,9 @@ export function executeTransfer(
       try {
         const file = app.vault.getAbstractFileByPath(item.relativeSourcePath);
         if (file) {
-          app.vault.trash(file, false);
+          await app.vault.trash(file, false);
         }
       } catch (err: any) {
-        // File already transferred; log but don't fail
         console.warn(`InterVault: failed to delete source ${item.relativeSourcePath}:`, err);
       }
     }
@@ -186,7 +185,9 @@ function addTransferFrontmatter(
   sourceRelPath: string,
 ): string {
   const date = new Date().toISOString().split("T")[0];
-  const newFields = `moved-from: "[[${sourceVaultName}/${sourceRelPath}]]"\nmoved-date: ${date}`;
+  const safeVaultName = sourceVaultName.replace(/"/g, '\\"');
+  const safePath = sourceRelPath.replace(/"/g, '\\"');
+  const newFields = `moved-from: "[[${safeVaultName}/${safePath}]]"\nmoved-date: ${date}`;
 
   // Check if frontmatter already exists
   if (content.startsWith("---\n")) {
