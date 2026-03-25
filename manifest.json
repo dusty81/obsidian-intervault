@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-intervault",
+  "name": "InterVault",
+  "version": "0.1.0",
+  "minAppVersion": "1.6.0",
+  "description": "Move and copy notes, folders, and resources between Obsidian vaults.",
+  "author": "djs0929",
+  "isDesktopOnly": true
+}
