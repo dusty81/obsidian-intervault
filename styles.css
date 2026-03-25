@@ -1,1 +1,21 @@
-/* InterVault plugin styles */
+.intervault-options-modal {
+  padding: 1em;
+}
+
+.intervault-summary {
+  margin-bottom: 1em;
+  padding: 0.5em 1em;
+  background: var(--background-secondary);
+  border-radius: 8px;
+}
+
+.intervault-summary p {
+  margin: 0.25em 0;
+  color: var(--text-muted);
+}
+
+.intervault-buttons {
+  margin-top: 1em;
+  display: flex;
+  justify-content: flex-end;
+}
