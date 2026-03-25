@@ -23,18 +23,27 @@ export function buildTransferItems(
   primaryFiles: TFile[],
   resources: TFile[],
   linkedNotes: TFile[],
-  /** Common prefix to strip from primary file paths (e.g., the selected folder's path). Empty string for single-file transfers. */
-  sourceBasePath: string = "",
+  /** Parent path to strip from primary file paths. null = single-file mode (use filename only). "" = vault root folder. "path" = nested folder parent. */
+  sourceBasePath: string | null = null,
 ): TransferItem[] {
   const items: TransferItem[] = [];
   const destAttachmentFolder = getDestinationAttachmentFolder(destVaultPath);
 
-  // Primary files: placed in destFolder, preserving relative structure under sourceBasePath
+  // Primary files: placed in destFolder, preserving relative structure
   for (const file of primaryFiles) {
-    // Strip the common source folder prefix so we preserve only the relative structure
-    const relativeName = sourceBasePath && file.path.startsWith(sourceBasePath + "/")
-      ? file.path.slice(sourceBasePath.length + 1)
-      : file.name;
+    let relativeName: string;
+    if (sourceBasePath === null) {
+      // Single file transfer — just use the filename
+      relativeName = file.name;
+    } else if (sourceBasePath === "") {
+      // Folder at vault root — keep full vault-relative path (preserves folder name + structure)
+      relativeName = file.path;
+    } else if (file.path.startsWith(sourceBasePath + "/")) {
+      // Nested folder — strip parent prefix, keeping folder name + structure
+      relativeName = file.path.slice(sourceBasePath.length + 1);
+    } else {
+      relativeName = file.path;
+    }
     const relDest =
       destFolder === "/" ? relativeName : `${destFolder}/${relativeName}`;
     items.push({

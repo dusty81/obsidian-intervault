@@ -46,7 +46,9 @@ export default class InterVaultPlugin extends Plugin {
             .onClick(() => {
               if (file instanceof TFolder) {
                 const files = collectFolderFiles(this.app, file);
-                this.startTransfer(files, file.path);
+                const parentPath = file.parent?.path;
+                const basePath = (!parentPath || parentPath === "/") ? "" : parentPath;
+                this.startTransfer(files, basePath);
               } else if (file instanceof TFile) {
                 this.startTransfer([file]);
               }
@@ -82,7 +84,7 @@ export default class InterVaultPlugin extends Plugin {
     // Cleanup handled by Obsidian's registerEvent
   }
 
-  private startTransfer(files: TFile[], sourceBasePath: string = "") {
+  private startTransfer(files: TFile[], sourceBasePath: string | null = null) {
     const sourceVaultPath = getCurrentVaultBasePath(this.app);
 
     // Step 1: Discover vaults
@@ -133,7 +135,7 @@ export default class InterVaultPlugin extends Plugin {
     destFolder: string,
     resolved: ReturnType<typeof resolveResources>,
     options: TransferOptions,
-    sourceBasePath: string = "",
+    sourceBasePath: string | null = null,
   ) {
     const items = buildTransferItems(
       sourceVaultPath,
