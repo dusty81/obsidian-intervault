@@ -12,10 +12,12 @@ export class VaultSelectModal extends FuzzySuggestModal<VaultInfo> {
     this.defaultVaultId = defaultVaultId;
     this.onSelect = onSelect;
     this.setPlaceholder("Select destination vault...");
+  }
 
-    // Pre-fill search with last-used vault name so it's highlighted
-    if (defaultVaultId) {
-      const lastVault = vaults.find((v) => v.id === defaultVaultId);
+  onOpen() {
+    super.onOpen();
+    if (this.defaultVaultId) {
+      const lastVault = this.vaults.find((v) => v.id === this.defaultVaultId);
       if (lastVault) {
         this.inputEl.value = lastVault.name;
         this.inputEl.dispatchEvent(new Event("input"));
