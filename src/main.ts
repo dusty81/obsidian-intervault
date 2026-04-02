@@ -22,14 +22,29 @@ export default class InterVaultPlugin extends Plugin {
     await this.loadSettings();
     this.addSettingTab(new InterVaultSettingTab(this.app, this));
 
-    // Command: transfer current note
+    // Command: transfer selected or current note(s)
     this.addCommand({
       id: "transfer-current-note",
-      name: "Transfer current note to another vault",
+      name: "Transfer to another vault",
       checkCallback: (checking: boolean) => {
-        const file = this.app.workspace.getActiveFile();
-        if (file) {
-          if (!checking) this.startTransfer([file]);
+        const selected = this.getSelectedFiles();
+        const activeFile = this.app.workspace.getActiveFile();
+        if ((selected && selected.length > 0) || activeFile) {
+          if (!checking) {
+            if (selected && selected.length > 0) {
+              const tFiles: TFile[] = [];
+              for (const f of selected) {
+                if (f instanceof TFile) {
+                  tFiles.push(f);
+                } else if (f instanceof TFolder) {
+                  tFiles.push(...collectFolderFiles(this.app, f));
+                }
+              }
+              this.startTransfer(tFiles);
+            } else {
+              this.startTransfer([activeFile!]);
+            }
+          }
           return true;
         }
         return false;

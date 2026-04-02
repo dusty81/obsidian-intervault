@@ -104,8 +104,8 @@ export class TransferOptionsModal extends Modal {
         transferBtn = btn.buttonEl;
       });
 
-    // Focus the Transfer button for keyboard-driven flow
-    transferBtn!.focus();
+    // Focus the Transfer button for keyboard-driven flow (defer for DOM render)
+    setTimeout(() => transferBtn!.focus(), 50);
   }
 
   onClose() {
