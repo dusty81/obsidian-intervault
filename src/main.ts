@@ -44,7 +44,21 @@ export default class InterVaultPlugin extends Plugin {
             .setTitle("InterVault: Transfer to another vault")
             .setIcon("folder-input")
             .onClick(() => {
-              if (file instanceof TFolder) {
+              // Check file explorer for multi-selection
+              const selected = this.getSelectedFiles();
+
+              if (selected && selected.length > 1) {
+                // Multi-select: use all selected files
+                const tFiles: TFile[] = [];
+                for (const f of selected) {
+                  if (f instanceof TFile) {
+                    tFiles.push(f);
+                  } else if (f instanceof TFolder) {
+                    tFiles.push(...collectFolderFiles(this.app, f));
+                  }
+                }
+                this.startTransfer(tFiles);
+              } else if (file instanceof TFolder) {
                 const files = collectFolderFiles(this.app, file);
                 const parentPath = file.parent?.path;
                 const basePath = (!parentPath || parentPath === "/") ? "" : parentPath;
@@ -57,7 +71,7 @@ export default class InterVaultPlugin extends Plugin {
       }),
     );
 
-    // Context menu supporting multiple selected files
+    // Context menu supporting multiple selected files (Obsidian 1.6+)
     this.registerEvent(
       this.app.workspace.on("files-menu", (menu: Menu, files: TAbstractFile[]) => {
         menu.addItem((item) => {
@@ -84,6 +98,26 @@ export default class InterVaultPlugin extends Plugin {
     // Cleanup handled by Obsidian's registerEvent
   }
 
+  /** Try to get selected files from the file explorer */
+  private getSelectedFiles(): TAbstractFile[] | null {
+    try {
+      const fileExplorer = this.app.workspace.getLeavesOfType("file-explorer")[0];
+      if (!fileExplorer) return null;
+      const view = fileExplorer.view as any;
+      if (!view?.fileItems) return null;
+
+      const selected: TAbstractFile[] = [];
+      for (const item of Object.values(view.fileItems) as any[]) {
+        if (item?.selfEl?.classList?.contains("is-selected") && item.file) {
+          selected.push(item.file as TAbstractFile);
+        }
+      }
+      return selected.length > 0 ? selected : null;
+    } catch {
+      return null;
+    }
+  }
+
   private startTransfer(files: TFile[], sourceBasePath: string | null = null) {
     const sourceVaultPath = getCurrentVaultBasePath(this.app);
 
@@ -101,11 +135,19 @@ export default class InterVaultPlugin extends Plugin {
       return;
     }
 
-    // Step 2: Select vault
-    new VaultSelectModal(this.app, vaults, (selectedVault) => {
-      // Step 3: Select folder
+    // Step 2: Select vault (pre-fill with last used)
+    new VaultSelectModal(this.app, vaults, this.settings.lastVaultId, (selectedVault) => {
+      // Step 3: Select folder (pre-fill with last used if same vault)
       const folders = getDestinationFolders(selectedVault.path);
-      new FolderSelectModal(this.app, folders, (selectedFolder) => {
+      const defaultFolder = selectedVault.id === this.settings.lastVaultId
+        ? this.settings.lastFolder
+        : "";
+      new FolderSelectModal(this.app, folders, defaultFolder, (selectedFolder) => {
+        // Remember selections
+        this.settings.lastVaultId = selectedVault.id;
+        this.settings.lastFolder = selectedFolder;
+        this.saveSettings();
+
         // Step 4: Resolve resources
         const resolved = resolveResources(this.app, files);
 

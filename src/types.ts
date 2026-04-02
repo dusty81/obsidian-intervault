@@ -34,9 +34,13 @@ export interface TransferResult {
 export interface InterVaultSettings {
   defaultMode: TransferMode;
   addFrontmatter: boolean;
+  lastVaultId: string;
+  lastFolder: string;
 }
 
 export const DEFAULT_SETTINGS: InterVaultSettings = {
   defaultMode: "copy",
   addFrontmatter: true,
+  lastVaultId: "",
+  lastFolder: "",
 };

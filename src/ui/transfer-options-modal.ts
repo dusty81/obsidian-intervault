@@ -82,11 +82,12 @@ export class TransferOptionsModal extends Modal {
 
     // Confirm / Cancel
     const buttonRow = contentEl.createDiv("intervault-buttons");
+    let transferBtn: HTMLButtonElement;
     new Setting(buttonRow)
       .addButton((btn) =>
         btn.setButtonText("Cancel").onClick(() => this.close()),
       )
-      .addButton((btn) =>
+      .addButton((btn) => {
         btn
           .setButtonText("Transfer")
           .setCta()
@@ -99,8 +100,12 @@ export class TransferOptionsModal extends Modal {
               includeLinkedNotes,
             });
             this.close();
-          }),
-      );
+          });
+        transferBtn = btn.buttonEl;
+      });
+
+    // Focus the Transfer button for keyboard-driven flow
+    transferBtn!.focus();
   }
 
   onClose() {
